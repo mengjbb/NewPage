@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>设备资产信息管理</title>
+    <!-- 多CDN加载：某个源访问不了时自动切换 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>if (typeof Chart === 'undefined') document.write('<script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.8/chart.umd.min.js"><\/script>');</script>
+    <script>if (typeof Chart === 'undefined') document.write('<script src="https://cdn.staticfile.org/Chart.js/4.4.8/chart.umd.min.js"><\/script>');</script>
+    <style>
+        /* ========== 全局配置变量 ========== */
+        :root {
+            /* LOGO PC端配置 */
+            --logo-pc-width: 200px;
+            --logo-pc-height: 200px;
+            --logo-pc-left: 10px;
+            --logo-pc-top: 200px;
+
+            /* LOGO 移动端配置 */
+            --logo-mobile-width: 70px;
+            --logo-mobile-height: 70px;
+            --logo-mobile-left: 5px;
+            --logo-mobile-top: 125%;
+
+            /* 标题字体配置 */
+            --title-pc-font-size: 2.2rem;
+            --title-mobile-font-size: 1.5rem;
+            --title-font-weight: 700;
+            --title-color: #333;
+
+            /* 标题背景容器大小配置 */
+            --title-container-pc-height: 150px;
+            --title-container-mobile-height: 120px;
+            --title-container-width: 100%;
+
+            /* 表格列宽统一配置 */
+            --date-col-width: 100px;
+            --person-col-width: 90px;
+            --remark-col-width: 100px;
+            --img-cell-pc-width: 200px;
+            --img-cell-pc-height: 80px;
+            --img-cell-mobile-width: 150px;
+            --img-cell-mobile-height: 50px;
+            --img-fit-mode: cover;
+            /* 设备主体图片单元格尺寸（PC+移动端） */
+            --device-img-cell-pc-width: 500px;
+            --device-img-cell-pc-height: 240px;
+            --device-img-cell-mobile-width: 300px;
+            --device-img-cell-mobile-height: 160px;
+
+            /* 其他基础配置 */
+            --bg-opacity: 1;
+
+            /* 核心优化配置项 */
+            --content-bg-img: url("页面图/bgbj.jpg");
+            --content-bg-opacity: 0;
+            --table-border-width: 2px;
+            --table-border-color: #ccc;
+            --th-bg-opacity: 0.5;
+            --td-bg-opacity: 0.5;
+            --middle-container-bg: url("页面图/bgbj.jpg");
+            --middle-container-opacity: 0.8;
+            --middle-header-height: 60px;
+            --middle-header-color: #333;
+            --middle-header-font-size: 1.4rem;
+            --middle-header-opacity: 0;
+
+            /* 版本号配置 */
+            --version-text: "Rev 0";
+            --version-font-size: 0.9rem;
+            --version-color: #666;
+            --version-left: auto;
+            --version-right: 20px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft Yahei", Arial, sans-serif; }
+        body { width: 100%; min-width: 320px; margin: 0 auto; padding: 10px; background-color: #f5f5f5; font-size: 14px; overflow: auto; height: 100vh; position: relative; }
+        .device-box { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; height: calc(100vh - 20px); display: flex; flex-direction: column; overflow: hidden; }
+        h2 { color: #444; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #eee; font-size: 1.2rem; position: relative; z-index: 2; }
+        .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 10px 0; position: relative; z-index: 2; }
+        table { width: 100%; min-width: 600px; border-collapse: collapse; position: relative; z-index: 2; }
+        th, td { border: var(--table-border-width) solid var(--table-border-color); padding: 8px 6px; text-align: center !important; vertical-align: middle; font-size: 13px; position: relative; z-index: 2; }
+        th { background-color: rgba(248, 248, 248, var(--th-bg-opacity)); white-space: nowrap; }
+        td { background-color: rgba(255, 255, 255, var(--td-bg-opacity)); word-break: break-all; }
+
+        #checkTable th:nth-child(1), #checkTable td:nth-child(1),
+        #replaceTable th:nth-child(1), #replaceTable td:nth-child(1),
+        #repairTable th:nth-child(1), #repairTable td:nth-child(1) { width: var(--date-col-width); white-space: nowrap; }
+        #checkTable th:nth-child(3), #checkTable td:nth-child(3),
+        #replaceTable th:nth-child(4), #replaceTable td:nth-child(4),
+        #repairTable th:nth-child(4), #repairTable td:nth-child(4) { width: var(--person-col-width); white-space: nowrap; }
+        #checkTable th:last-child, #checkTable td:last-child,
+        #replaceTable th:last-child, #replaceTable td:last-child,
+        #repairTable th:last-child, #repairTable td:last-child { width: var(--remark-col-width); }
+
+        #checkTable .img-cell, #replaceTable .img-cell, #repairTable .img-cell { width: var(--img-cell-pc-width); height: var(--img-cell-pc-height); padding: 0 !important; vertical-align: middle; overflow: hidden; }
+        #deviceBaseInfoTable .device-img-cell { width: var(--device-img-cell-pc-width); height: var(--device-img-cell-pc-height); padding: 0 !important; vertical-align: middle; overflow: hidden; border: var(--table-border-width) solid var(--table-border-color); }
+        .table-img { width: 100%; height: 100%; object-fit: var(--img-fit-mode); object-position: center; border-radius: 4px; cursor: pointer; border: 1px solid #eee; transition: all 0.2s; display: block; transform-origin: center center; }
+        .table-img:hover { transform: scale(1.05); border-color: #2196F3; }
+        .no-img { color: #999; font-size: 12px; display: inline-block; width: 100%; height: 100%; line-height: var(--img-cell-pc-height); }
+        #deviceBaseInfoTable .no-img { line-height: var(--device-img-cell-pc-height); font-size: 14px; }
+
+        .title-container { position: relative; margin-bottom: 20px; width: var(--title-container-width); height: var(--title-container-pc-height); margin-left: auto; margin-right: auto; display: flex; align-items: center; justify-content: center; background: url("页面图/background.jpg") no-repeat center center; background-size: 100% 100%; background-color: transparent; z-index: 2; flex-shrink: 0; }
+        .bg-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #fff; opacity: calc(1 - var(--bg-opacity)); pointer-events: none; z-index: 1; }
+        .custom-logo { position: absolute; left: var(--logo-pc-left); top: var(--logo-pc-top); transform: translateY(-50%); width: var(--logo-pc-width); height: var(--logo-pc-height); object-fit: contain; z-index: 3; }
+        .main-title { margin: 0; padding: 0 20px; font-size: var(--title-pc-font-size); font-weight: var(--title-font-weight); color: var(--title-color); z-index: 3; position: relative; white-space: nowrap; }
+
+        .img-preview-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 15px; }
+        .img-preview-content { position: relative; max-width: 95%; max-height: 80vh; }
+        .preview-img { width: 100%; height: auto; border-radius: 8px; }
+        .close-preview { position: absolute; top: -35px; right: 0; color: #fff; font-size: 28px; cursor: pointer; width: 35px; height: 35px; text-align: center; line-height: 35px; }
+
+        .middle-bg-container { position: relative; width: 100%; flex: 1; border-radius: 8px; overflow: hidden; z-index: 1; display: flex; flex-direction: column; }
+        .middle-bg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--middle-container-bg) no-repeat center center; background-size: cover; opacity: var(--middle-container-opacity); z-index: 1; pointer-events: none; }
+        .middle-header { position: relative; z-index: 3; height: var(--middle-header-height); background-color: rgba(250, 250, 250, var(--middle-header-opacity)); display: flex; align-items: center; justify-content: center; padding: 0 20px; color: var(--middle-header-color); font-size: var(--middle-header-font-size); font-weight: 700; white-space: nowrap; }
+        .version-info { position: absolute; right: var(--version-right); left: var(--version-left); font-size: var(--version-font-size); color: var(--version-color); font-weight: normal; white-space: nowrap; }
+        .table-scroll-container { position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 15px; }
+        .content-bg-container { position: relative; width: 100%; height: 100%; padding: 0; margin: 0; z-index: 2; }
+        .content-bg-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: transparent; opacity: calc(1 - var(--content-bg-opacity)); pointer-events: none; z-index: 1; }
+        .content-main { position: relative; z-index: 2; width: 100%; height: 100%; padding: 0; margin: 0; }
+
+        /* ========= 图表卡片样式 ========= */
+        .chart-wrap { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 12px 0 20px 0; z-index: 2; position: relative; }
+        .chart-card { background-color: rgba(255,255,255,var(--td-bg-opacity)); border: var(--table-border-width) solid var(--table-border-color); border-radius: 6px; padding: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
+        .chart-card h3 { font-size: 0.95rem; color: #333; margin-bottom: 8px; text-align: center; }
+        .chart-canvas-box { width: 100%; height: 220px; }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            body { padding: 5px; font-size: 13px; overflow: auto; height: 100vh; }
+            .device-box { padding: 10px; margin-bottom: 10px; height: calc(100vh - 10px); overflow: hidden; }
+            h2 { font-size: 1rem; margin: 10px 0; }
+            th, td { padding: 6px 4px; font-size: 12px; border: var(--table-border-width) solid var(--table-border-color); }
+            .custom-logo { left: var(--logo-mobile-left); top: var(--logo-mobile-top); width: var(--logo-mobile-width); height: var(--logo-mobile-height); }
+            .main-title { font-size: var(--title-mobile-font-size); }
+            .title-container { height: var(--title-container-mobile-height); margin-bottom: 10px; }
+            #checkTable .img-cell, #replaceTable .img-cell, #repairTable .img-cell { width: var(--img-cell-mobile-width); height: var(--img-cell-mobile-height); overflow: hidden; }
+            .no-img { line-height: var(--img-cell-mobile-height); }
+            #deviceBaseInfoTable .device-img-cell { width: var(--device-img-cell-mobile-width); height: var(--device-img-cell-mobile-height); }
+            #deviceBaseInfoTable .no-img { line-height: var(--device-img-cell-mobile-height); font-size: 12px; }
+            :root { --middle-header-height: 45px; --middle-header-font-size: 1.1rem; --middle-container-opacity: 0.8; --middle-header-opacity: 0; --version-font-size: 0.8rem; --version-right: 10px; }
+            .table-scroll-container { padding: 10px; }
+            .chart-wrap { grid-template-columns: 1fr; }
+            .chart-canvas-box { height: 180px; }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            :root { --logo-pc-width: 120px; --logo-pc-height: 120px; --img-cell-pc-width: 60px; --img-cell-pc-height: 60px; --title-pc-font-size: 1.8rem; --content-bg-opacity: 0; --table-border-width: 1.5px; --device-img-cell-pc-width: 150px; --device-img-cell-pc-height: 200px; --middle-header-height: 50px; --middle-header-font-size: 1.2rem; --middle-header-opacity: 0; --version-font-size: 0.85rem; --version-right: 15px; }
+            h2 { font-size: 1.1rem; }
+            .chart-wrap { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="device-box">
+        <div class="title-container">
+            <div class="bg-mask"></div>
+            <img src="页面图/logo.jpg" class="custom-logo" alt="设备管理系统LOGO">
+        </div>
+        <div class="middle-bg-container">
+            <div class="middle-bg-layer"></div>
+            <div class="middle-header">
+                <span>设备资产信息记录</span>
+                <span class="version-info">版本号：Rev 0</span>
+            </div>
+            <div class="table-scroll-container">
+                <div class="content-bg-container">
+                    <div class="content-bg-mask"></div>
+                    <div class="content-main">
+                        <h2>基础资产信息</h2>
+                        <div class="table-container">
+                            <table id="deviceBaseInfoTable">
+                                <tr>
+                                    <th>站位名称</th><td>激光焊接</td>
+                                    <th rowspan="6">站位主体</th>
+                                    <td rowspan="6" class="device-img-cell">
+                                        <img src="设备图/设备主体.jpg" alt="站位主体图片" class="table-img" onclick="openImgPreview('设备图/设备主体.jpg')">
+                                    </td>
+                                </tr>
+                                <tr><th>设备名称</th><td>KUKA机器人、激光发射器、冷水机</td></tr>
+                                <tr><th>使用部门</th><td>PACK生产</td></tr>
+                                <tr><th>安装日期</th><td>2024-09-01</td></tr>
+                                <tr><th>使用寿命</th><td>20年</td></tr>
+                                <tr><th>设备责任人</th><td>设备部-杨鹏</td></tr>
+                            </table>
+                        </div>
+
+                        <!-- ==========统计图表区域========== -->
+                        <h2>设备统计分析</h2>
+                        <div class="chart-wrap">
+                            <div class="chart-card">
+                                <h3>各类故障维修次数统计</h3>
+                                <div class="chart-canvas-box">
+                                    <canvas id="barChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>月度维保工时趋势</h3>
+                                <div class="chart-canvas-box">
+                                    <canvas id="lineChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>故障原因占比分布</h3>
+                                <div class="chart-canvas-box">
+                                    <canvas id="pieChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="recordTablesContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="img-preview-modal" id="imgPreviewModal" onclick="closeImgPreview()">
+        <div class="img-preview-content" onclick="event.stopPropagation()">
+            <span class="close-preview" id="closePreviewBtn">&times;</span>
+            <img src="" alt="图片预览" class="preview-img" id="previewImg">
+        </div>
+    </div>
+
+    <script>
+        const RECORD_TABLE_CONFIGS = {
+            checkRecords: {
+                title: "定期维保记录",
+                tableId: "checkTable",
+                columns: [
+                    { key: "date", label: "维保日期" },
+                    { key: "content", label: "维保内容" },
+                    { key: "name", label: "维保人" },
+                    { key: "img", label: "维保图片", type: "img" },
+                    { key: "expdate", label: "维保周期" },
+                    { key: "remark", label: "备注" }
+                ],
+                rows: [
+                    { date: "2026-6-16", content: "设备总电源检查", name: "霍明", remark: "", img: "设备图/maintenance1.jpg", expdate: "六个月" },
+                    { date: "2026-6-16", content: "反馈线检查", name: "何海鑫", remark: "", img: "设备图/maintenance2.jpg", expdate: "六个月" },
+                    { date: "2026-6-16", content: "线路接线端子紧固", name: "姜斌斌", remark: "", img: "设备图/maintenance3.jpg", expdate: "六个月" },
+                    { date: "2026-6-16", content: "连接地线检查", name: "姜斌斌", remark: "", img: "设备图/maintenance4.jpg", expdate: "六个月" },
+                    { date: "2026-6-16", content: "机器人零点位置", name: "吴恒锐", remark: "", img: "设备图/maintenance5.jpg", expdate: "六个月" },
+                    { date: "2026-6-16", content: "激光发生器液位", name: "何海鑫", remark: "", img: "设备图/maintenance6.jpg", expdate: "六个月" },
+                    { date: "2026-6-16", content: "冷水机外挂滤芯", name: "霍明", remark: "", img: "设备图/maintenance7.jpg", expdate: "六个月" }
+                ]
+            },
+            replaceRecords: {
+                title: "易损件更换记录",
+                tableId: "replaceTable",
+                columns: [
+                    { key: "date", label: "更换日期" },
+                    { key: "part", label: "易损件名称" },
+                    { key: "reason", label: "更换原因" },
+                    { key: "name", label: "更换人" },
+                    { key: "img", label: "更换图片", type: "img" },
+                    { key: "remark", label: "备注" }
+                ],
+                rows: [
+                    { date: "2026-6-07", part: "镜片", reason: "镜片上有焊渣挡光", name: "霍明", img: "设备图/replace1.jpg" }
+                ]
+            },
+            repairRecords: {
+                title: "设备维修记录",
+                tableId: "repairTable",
+                columns: [
+                    { key: "date", label: "维修日期" },
+                    { key: "content", label: "维修内容" },
+                    { key: "fault", label: "故障描述" },
+                    { key: "engineer", label: "维修工程师" },
+                    { key: "img", label: "维修图片", type: "img" },
+                    { key: "remark", label: "备注" }
+                ],
+                rows: [
+                    { date: "", content: "", fault: "", engineer: "", img: "设备图/repair1.jpg" }
+                ]
+            }
+        };
+
+        function generateRecordTablesHtml() {
+            const container = document.getElementById('recordTablesContainer');
+            let html = '';
+            for (const tableKey in RECORD_TABLE_CONFIGS) {
+                const config = RECORD_TABLE_CONFIGS[tableKey];
+                html += `<h2>${config.title}</h2>`;
+                html += `<div class="table-container"><table id="${config.tableId}"></table></div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function renderTable(tableKey) {
+            const config = RECORD_TABLE_CONFIGS[tableKey];
+            const table = document.getElementById(config.tableId);
+            const rowsData = config.rows || [];
+
+            let headerHtml = '<tr>';
+            config.columns.forEach(col => { headerHtml += `<th>${col.label}</th>`; });
+            headerHtml += '</tr>';
+            table.innerHTML = headerHtml;
+
+            rowsData.forEach((item) => {
+                const row = table.insertRow(-1);
+                let cellHtml = '';
+                config.columns.forEach(col => {
+                    const cellValue = item[col.key] || '';
+                    if (col.type === 'img') {
+                        cellHtml += cellValue ?
+                            `<td class="img-cell"><img src="${cellValue}" alt="${col.label}" class="table-img" onclick="openImgPreview('${cellValue}')"></td>` :
+                            `<td class="img-cell"><span class="no-img">暂无图片</span></td>`;
+                    } else {
+                        cellHtml += `<td>${cellValue}</td>`;
+                    }
+                });
+                row.innerHTML = cellHtml;
+            });
+
+            if (rowsData.length === 0) {
+                const emptyRow = table.insertRow(-1);
+                const emptyCell = emptyRow.insertCell(0);
+                emptyCell.colSpan = config.columns.length;
+                emptyCell.textContent = "暂无记录数据";
+                emptyCell.style.padding = "15px";
+                emptyCell.style.color = "#999";
+            }
+        }
+
+        function openImgPreview(imgSrc) {
+            const modal = document.getElementById('imgPreviewModal');
+            const previewImg = document.getElementById('previewImg');
+            previewImg.src = imgSrc;
+            modal.style.display = "flex";
+            document.body.style.overflow = "hidden";
+        }
+        function closeImgPreview() {
+            const modal = document.getElementById('imgPreviewModal');
+            modal.style.display = "none";
+            document.body.style.overflow = "auto";
+        }
+
+        function renderAllTables() {
+            for (const tableKey in RECORD_TABLE_CONFIGS) {
+                renderTable(tableKey);
+            }
+        }
+
+        // ========== 统计图表假数据（三图数据呼应：柱状图合计41 = 环形图合计41）==========
+        const CHART_MOCK_DATA = {
+            bar: {
+                labels: ["电气控制", "激光光路", "气动夹具", "冷却系统", "传感器", "机器人本体"],
+                data:   [14, 9, 7, 5, 4, 2],
+                colors: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+            },
+            line: {
+                labels: ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],
+                data:   [16, 24, 18, 20, 32, 22, 28, 45, 15, 18, 25, 20],
+                color:  '#36A2EB'
+            },
+            pie: {
+                labels: ["易损件正常损耗", "人员操作不当", "环境因素", "软件/程序异常", "外部供电波动"],
+                data:   [16, 9, 7, 5, 4],
+                colors: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF']
+            }
+        };
+
+        // ========== 图表初始化入口：在线用Chart.js，离线自动用内置Canvas ==========
+        function initCharts() {
+            if (typeof Chart !== 'undefined') {
+                try { renderByChartJs(); return; }
+                catch (e) { console.warn('Chart.js渲染失败，切换内置渲染：', e); }
+            }
+            console.warn('⚠ Chart.js未加载(离线/内网环境)，启用内置Canvas图表渲染');
+            renderFallbackCharts();
+            let t = null;
+            window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(renderFallbackCharts, 200); });
+        }
+
+        // ---------- 方式1：Chart.js 渲染 ----------
+        function renderByChartJs() {
+            const B = CHART_MOCK_DATA.bar, L = CHART_MOCK_DATA.line, P = CHART_MOCK_DATA.pie;
+            const pTotal = P.data.reduce((a, b) => a + b, 0);
+
+            new Chart(document.getElementById('barChart'), {
+                type: 'bar',
+                data: { labels: B.labels, datasets: [{ label: "维修次数", data: B.data, backgroundColor: B.colors, borderRadius: 6, borderSkipped: false }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 10, cornerRadius: 6 } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#666', font: { size: 11 } } },
+                        x: { grid: { display: false }, ticks: { color: '#666', font: { size: 10 } } }
+                    }
+                }
+            });
+
+            new Chart(document.getElementById('lineChart'), {
+                type: 'line',
+                data: {
+                    labels: L.labels,
+                    datasets: [{
+                        label: "维保工时(h)", data: L.data, borderColor: L.color, borderWidth: 3, fill: true,
+                        backgroundColor: (c) => { const g = c.chart.ctx.createLinearGradient(0, 0, 0, 220); g.addColorStop(0, 'rgba(54,162,235,0.3)'); g.addColorStop(1, 'rgba(54,162,235,0.02)'); return g; },
+                        tension: 0.3, pointRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: L.color, pointBorderWidth: 2, pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 10, cornerRadius: 6, callbacks: { label: (c) => `工时：${c.parsed.y} 小时` } } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#666', font: { size: 11 } } },
+                        x: { grid: { display: false }, ticks: { color: '#666', font: { size: 10 }, maxRotation: 45 } }
+                    }
+                }
+            });
+
+            new Chart(document.getElementById('pieChart'), {
+                type: 'doughnut',
+                data: { labels: P.labels, datasets: [{ data: P.data, backgroundColor: P.colors, borderColor: '#fff', borderWidth: 3, hoverOffset: 10 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '60%',
+                    plugins: {
+                        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, usePointStyle: true, pointStyle: 'circle', color: '#333' } },
+                        tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 10, cornerRadius: 6, callbacks: { label: (c) => ` ${c.label}：${c.parsed}次（${(c.parsed / pTotal * 100).toFixed(1)}%）` } }
+                    }
+                }
+            });
+        }
+
+        // ---------- 方式2：内置原生Canvas渲染（离线兜底）----------
+        function renderFallbackCharts() {
+            drawBarChart(document.getElementById('barChart'));
+            drawLineChart(document.getElementById('lineChart'));
+            drawDoughnutChart(document.getElementById('pieChart'));
+        }
+        function prepCanvas(canvas) {
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.parentElement.clientWidth, h = canvas.parentElement.clientHeight;
+            if (w <= 0 || h <= 0) return null;
+            canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+            canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+            return { ctx, w, h };
+        }
+        function rr(ctx, x, y, w, h, r) {
+            r = Math.min(r, w / 2, h / 2);
+            ctx.beginPath(); ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+        }
+        function drawBarChart(canvas) {
+            const p = prepCanvas(canvas); if (!p) return;
+            const { ctx, w, h } = p, { labels, data, colors } = CHART_MOCK_DATA.bar;
+            const padL = 28, padR = 8, padT = 18, padB = 26, cw = w - padL - padR, ch = h - padT - padB;
+            const maxV = Math.ceil(Math.max(...data) / 5) * 5;
+            ctx.font = '10px "Microsoft Yahei",sans-serif';
+            for (let i = 0; i <= 3; i++) {
+                const y = padT + ch - ch * i / 3;
+                ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.beginPath();
+                ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+                ctx.fillStyle = '#888'; ctx.textAlign = 'right';
+                ctx.fillText(String(Math.round(maxV * i / 3)), padL - 5, y + 3);
+            }
+            const n = data.length, slot = cw / n, bw = Math.min(slot * 0.55, 40);
+            data.forEach((v, i) => {
+                const cx = padL + slot * (i + 0.5), bh = ch * v / maxV, x = cx - bw / 2, y = padT + ch - bh;
+                ctx.fillStyle = colors[i % colors.length]; rr(ctx, x, y, bw, bh, 5); ctx.fill();
+                ctx.textAlign = 'center'; ctx.fillStyle = '#333'; ctx.fillText(String(v), cx, y - 4);
+                ctx.fillStyle = '#666'; ctx.fillText(labels[i], cx, padT + ch + 15);
+            });
+        }
+        function drawLineChart(canvas) {
+            const p = prepCanvas(canvas); if (!p) return;
+            const { ctx, w, h } = p, { labels, data, color } = CHART_MOCK_DATA.line;
+            const padL = 28, padR = 10, padT = 18, padB = 26, cw = w - padL - padR, ch = h - padT - padB;
+            const maxV = Math.ceil(Math.max(...data) / 10) * 10, n = data.length;
+            ctx.font = '9px "Microsoft Yahei",sans-serif';
+            for (let i = 0; i <= 5; i++) {
+                const y = padT + ch - ch * i / 5;
+                ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.beginPath();
+                ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+                ctx.fillStyle = '#888'; ctx.textAlign = 'right';
+                ctx.fillText(String(Math.round(maxV * i / 5)), padL - 5, y + 3);
+            }
+            const pts = data.map((v, i) => ({ x: padL + cw * i / (n - 1), y: padT + ch - ch * v / maxV }));
+            const g = ctx.createLinearGradient(0, padT, 0, padT + ch);
+            g.addColorStop(0, 'rgba(54,162,235,0.3)'); g.addColorStop(1, 'rgba(54,162,235,0.02)');
+            ctx.beginPath(); pts.forEach((pt, i) => i ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y));
+            ctx.lineTo(pts[n - 1].x, padT + ch); ctx.lineTo(pts[0].x, padT + ch); ctx.closePath();
+            ctx.fillStyle = g; ctx.fill();
+            ctx.beginPath(); pts.forEach((pt, i) => i ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y));
+            ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+            pts.forEach((pt, i) => {
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(String(data[i]), pt.x, pt.y - 7);
+            });
+            const every = (cw / (n - 1) < 26) ? 2 : 1;
+            ctx.fillStyle = '#666';
+            labels.forEach((lb, i) => { if (i % every === 0) ctx.fillText(lb, pts[i].x, padT + ch + 15); });
+        }
+        function drawDoughnutChart(canvas) {
+            const p = prepCanvas(canvas); if (!p) return;
+            const { ctx, w, h } = p, { labels, data, colors } = CHART_MOCK_DATA.pie;
+            const total = data.reduce((a, b) => a + b, 0);
+            const legendW = Math.min(w * 0.45, 150);
+            const cx = (w - legendW) / 2 + 6, cy = h / 2;
+            const R = Math.min((w - legendW) / 2, h / 2) - 8, r = R * 0.58;
+            let a = -Math.PI / 2;
+            data.forEach((v, i) => {
+                const ang = v / total * 2 * Math.PI;
+                ctx.beginPath(); ctx.arc(cx, cy, R, a, a + ang); ctx.arc(cx, cy, r, a + ang, a, true);
+                ctx.closePath(); ctx.fillStyle = colors[i % colors.length]; ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; ctx.stroke();
+                a += ang;
+            });
+            ctx.textAlign = 'center'; ctx.fillStyle = '#333';
+            ctx.font = 'bold 16px "Microsoft Yahei",sans-serif'; ctx.fillText(String(total), cx, cy);
+            ctx.font = '9px "Microsoft Yahei",sans-serif'; ctx.fillStyle = '#888';
+            ctx.fillText('总故障数', cx, cy + 14);
+            ctx.textAlign = 'left'; ctx.font = '10px "Microsoft Yahei",sans-serif';
+            const lh = 17; let ly = cy - (data.length * lh) / 2 + 8; const lx = w - legendW + 8;
+            data.forEach((v, i) => {
+                ctx.beginPath(); ctx.arc(lx, ly - 3, 4, 0, Math.PI * 2);
+                ctx.fillStyle = colors[i % colors.length]; ctx.fill();
+                ctx.fillStyle = '#444';
+                ctx.fillText(`${labels[i]} ${Math.round(v / total * 100)}%`, lx + 9, ly);
+                ly += lh;
+            });
+        }
+
+        window.onload = function () {
+            generateRecordTablesHtml();
+            renderAllTables();
+            initCharts();
+            document.getElementById('closePreviewBtn').addEventListener('click', closeImgPreview);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeImgPreview();
+            });
+
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                const scrollContainer = document.querySelector('.table-scroll-container');
+                if (scrollContainer) {
+                    scrollContainer.addEventListener('touchmove', function (e) {
+                    }, { passive: true });
+                }
+            }
+        };
+    </script>
+</body>
+</html>
